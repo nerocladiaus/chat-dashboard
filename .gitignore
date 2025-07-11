@@ -1,0 +1,4 @@
+venv/
+chat.db
+__pycache__/
+*.py[cod]

@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Chat {{chat_id}}</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+  <script src="//cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.0/socket.io.min.js"></script>
+  <script src="/static/js/chat.js" defer></script>
+</head>
+<body>
+  <div class="container">
+    <h1>Chat Room {{chat_id}}</h1>
+    <input type="hidden" id="chatId" value="{{chat_id}}" />
+    <ul id="feed"></ul>
+    <form id="postForm">
+      <input type="text" id="user" placeholder="Your name" required />
+      <input type="text" id="text" placeholder="Your message" required />
+      <button type="submit">Send</button>
+    </form>
+  </div>
+</body>
+</html>
