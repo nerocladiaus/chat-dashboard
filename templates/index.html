@@ -2,9 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>PeerConnect – Posts</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+    rel="stylesheet">
 </head>
 <body class="bg-light">
   <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
@@ -12,23 +14,70 @@
       <a class="navbar-brand" href="/">PeerConnect</a>
     </div>
   </nav>
+
   <div class="container my-4">
     <h2 class="mb-3">All Posts</h2>
-    <div class="row row-cols-1 row-cols-md-2 g-4">
+    <div id="posts-grid" class="row row-cols-1 row-cols-md-2 g-4">
       {% for p in posts %}
-      <div class="col">
+      <div class="col" id="post-{{ p.id }}">
         <div class="card h-100 shadow-sm">
           <div class="card-body">
             <h5 class="card-title text-primary">{{ p.category }}</h5>
-            <h6 class="card-subtitle mb-2 text-muted">[{{ p.kiosk_id }}] &bull; {{ p.timestamp }}</h6>
-            <p class="card-text">{{ p.content[:100] }}{% if p.content|length > 100 %}...{% endif %}</p>
-            <a href="/post/{{ p.id }}" class="btn btn-outline-primary btn-sm">View Details</a>
+            <h6 class="card-subtitle mb-2 text-muted">
+              [{{ p.kiosk_id }}] • {{ p.timestamp }}
+            </h6>
+            <p class="card-text">
+              {{ p.content[:100] }}{% if p.content|length > 100 %}…{% endif %}
+            </p>
+            <a href="/post/{{ p.id }}"
+               class="btn btn-outline-primary btn-sm">
+               View Details
+            </a>
           </div>
         </div>
       </div>
       {% endfor %}
     </div>
   </div>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- 1) load Socket.IO client -->
+  <script src="//{{ request.host }}/socket.io/socket.io.js"></script>
+  <script>
+    // 2) connect back to the same origin
+    const socket = io();
+
+    // 3) on each new_post, build the same card HTML & prepend to grid
+    socket.on('new_post', post => {
+      const container = document.getElementById('posts-grid');
+      const wrapper = document.createElement('div');
+      wrapper.className = 'col';
+      wrapper.id = 'post-' + post.id;
+
+      // You can tweak this HTML to match your styling exactly
+      wrapper.innerHTML = `
+        <div class="card h-100 shadow-sm">
+          <div class="card-body">
+            <h5 class="card-title text-primary">${post.category}</h5>
+            <h6 class="card-subtitle mb-2 text-muted">
+              [${post.kiosk_id}] • ${post.timestamp}
+            </h6>
+            <p class="card-text">
+              ${post.content.length > 100
+                ? post.content.slice(0,100)+'…'
+                : post.content}
+            </p>
+            <a href="/post/${post.id}"
+               class="btn btn-outline-primary btn-sm">
+               View Details
+            </a>
+          </div>
+        </div>
+      `;
+
+      // add to top
+      container.prepend(wrapper);
+    });
+  </script>
 </body>
 </html>
