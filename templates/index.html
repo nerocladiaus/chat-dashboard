@@ -1,54 +1,85 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <!-- … your head tags … -->
-    <script src="https://cdn.socket.io/4.5.1/socket.io.min.js"></script>
-  </head>
-  <body>
-    <!-- … your navbar + container … -->
-    <div id="posts" class="row row-cols-1 row-cols-md-2 g-4">
-      {% for p in posts %}
-      <div class="col" id="post-{{p.id}}">
-        <div class="card h-100 shadow-sm">
-          <div class="card-body">
-            <h5 class="card-title text-primary">{{ p.category }}</h5>
-            <h6 class="card-subtitle mb-2 text-muted">[{{ p.kiosk_id }}] &bull; {{ p.timestamp }}</h6>
-            <p class="card-text">{{ p.content[:100] }}{% if p.content|length>100 %}…{% endif %}</p>
-            <a href="/post/{{ p.id }}" class="btn btn-outline-primary btn-sm">View Details</a>
-          </div>
-        </div>
-      </div>
-      {% endfor %}
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PeerConnect – Posts</title>
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+    rel="stylesheet">
+</head>
+<body class="bg-light">
+  <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="/">PeerConnect</a>
     </div>
+  </nav>
 
-    <script>
-      const socket = io();  // auto-connects to same host:port
+  <div class="container my-4">
+    <h2 class="mb-3">All Posts</h2>
 
-      socket.on('new_post', post => {
-        // build the new card’s HTML
-        const col = document.createElement('div');
-        col.className = 'col';
-        col.id = 'post-' + post.id;
-        col.innerHTML = `
+    <div id="posts" class="row row-cols-1 row-cols-md-2 g-4">
+      {% if posts %}
+        {% for p in posts %}
+        <div class="col" id="post-{{ p.id }}">
           <div class="card h-100 shadow-sm">
             <div class="card-body">
-              <h5 class="card-title text-primary">${post.category}</h5>
+              <h5 class="card-title text-primary">{{ p.category }}</h5>
               <h6 class="card-subtitle mb-2 text-muted">
-                [${post.kiosk_id}] &bull; ${post.timestamp}
+                [{{ p.kiosk_id }}] • {{ p.timestamp }}
               </h6>
               <p class="card-text">
-                ${post.content.length>100 
-                   ? post.content.slice(0,100) + '…' 
-                   : post.content}
+                {{ p.content[:100] }}{% if p.content|length > 100 %}...{% endif %}
               </p>
-              <a href="/post/${post.id}"
-                 class="btn btn-outline-primary btn-sm">View Details</a>
+              <a href="/post/{{ p.id }}"
+                 class="btn btn-outline-primary btn-sm">
+                View Details
+              </a>
             </div>
-          </div>`;
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="col-12">
+          <p class="text-muted">No posts yet.</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
 
-        // prepend to the grid
-        document.getElementById('posts').prepend(col);
-      });
-    </script>
-  </body>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.socket.io/4.5.1/socket.io.min.js"></script>
+  <script>
+    const socket = io();  // connect back to Flask-SocketIO
+
+    socket.on('new_post', p => {
+      console.log('new_post', p);
+      // skip if we already have this ID
+      if (document.getElementById('post-'+p.id)) return;
+
+      const col = document.createElement('div');
+      col.className = 'col';
+      col.id = 'post-' + p.id;
+      col.innerHTML = `
+        <div class="card h-100 shadow-sm">
+          <div class="card-body">
+            <h5 class="card-title text-primary">${p.category}</h5>
+            <h6 class="card-subtitle mb-2 text-muted">
+              [${p.kiosk_id}] • ${p.timestamp}
+            </h6>
+            <p class="card-text">
+              ${p.content.length > 100
+                ? p.content.slice(0,100) + '…'
+                : p.content
+              }
+            </p>
+            <a href="/post/${p.id}" class="btn btn-outline-primary btn-sm">
+              View Details
+            </a>
+          </div>
+        </div>`;
+      document.getElementById('posts').prepend(col);
+    });
+  </script>
+</body>
 </html>
