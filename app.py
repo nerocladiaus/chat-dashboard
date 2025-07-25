@@ -1,9 +1,11 @@
 import os
 import time
 import sqlite3
+import atexit
 from datetime import datetime
 
 from flask import Flask, render_template, request, jsonify, abort
+from flask_cors import CORS
 from flask_socketio import SocketIO
 
 import board
@@ -22,6 +24,11 @@ app = Flask(__name__,
             template_folder='templates',
             static_folder='static')
 app.config['SECRET_KEY'] = SECRET_KEY
+
+# Enable CORS for REST endpoints
+CORS(app)
+
+# SocketIO (we keep CORS allowed here too)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 
@@ -91,9 +98,9 @@ def get_posts():
 @app.route('/api/posts', methods=['POST'])
 def add_post():
     data = request.get_json() or {}
-    kiosk_id = data.get('kiosk_id','unknown')
-    category = data.get('category','uncategorized')
-    content  = data.get('content','')
+    kiosk_id = data.get('kiosk_id', 'unknown')
+    category = data.get('category', 'uncategorized')
+    content  = data.get('content', '')
     ts       = datetime.utcnow().isoformat()
 
     with sqlite3.connect(DATABASE) as conn:
@@ -106,12 +113,12 @@ def add_post():
         post_id = c.lastrowid
 
     post = {
-      'id': post_id,
-      'kiosk_id': kiosk_id,
-      'category': category,
-      'content': content,
-      'timestamp': ts,
-      'status': 'approved'
+        'id': post_id,
+        'kiosk_id': kiosk_id,
+        'category': category,
+        'content': content,
+        'timestamp': ts,
+        'status': 'approved'
     }
     socketio.emit('new_post', post)
     return jsonify(post), 201
@@ -120,19 +127,30 @@ def add_post():
 @app.route('/api/temperature')
 def get_temperature():
     for _ in range(3):
-      try:
-        t = DHT_DEVICE.temperature
-        break
-      except RuntimeError:
-        time.sleep(1)
-        continue
+        try:
+            t = DHT_DEVICE.temperature
+            break
+        except RuntimeError:
+            time.sleep(1)
     else:
-     return jsonify({ 'temperature': None }), 503
+        # Failed 3 times
+        return jsonify({'temperature': None}), 503
+
+    # Successful read
+    return jsonify({'temperature': t}), 200
 
 
 @socketio.on('connect')
 def on_connect():
     print('Client connected')
+
+
+@atexit.register
+def cleanup_sensor():
+    try:
+        DHT_DEVICE.exit()
+    except Exception:
+        pass
 
 
 if __name__ == '__main__':
