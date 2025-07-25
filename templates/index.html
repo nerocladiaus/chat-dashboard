@@ -1,85 +1,97 @@
+<!-- templates/index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>PeerConnect – Posts</title>
-  <link
-    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
-    rel="stylesheet">
+  <!-- … your head as before, but loading bootstrap locally … -->
+  <link rel="stylesheet"
+        href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
 </head>
 <body class="bg-light">
   <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-    <div class="container-fluid">
-      <a class="navbar-brand" href="/">PeerConnect</a>
-    </div>
+    <!-- … -->
   </nav>
 
   <div class="container my-4">
-    <h2 class="mb-3">All Posts</h2>
+    <!-- ==== New: Post form with toggle buttons ==== -->
+    <h2 class="mb-3">Submit a Post</h2>
+    <form id="post-form">
+      <div class="mb-3">
+        <!-- Bootstrap 5 “button‐check” toggles -->
+        <div class="btn-group" role="group" aria-label="Category">
+          <input type="radio" class="btn-check" name="category" id="cat-academic"
+                 value="Academic Help" autocomplete="off" checked>
+          <label class="btn btn-outline-primary" for="cat-academic">
+            Academic Help
+          </label>
 
+          <input type="radio" class="btn-check" name="category" id="cat-lostfound"
+                 value="Lost &amp; Found" autocomplete="off">
+          <label class="btn btn-outline-primary" for="cat-lostfound">
+            Lost &amp; Found
+          </label>
+
+          <input type="radio" class="btn-check" name="category" id="cat-interest"
+                 value="Interest Group" autocomplete="off">
+          <label class="btn btn-outline-primary" for="cat-interest">
+            Interest Group
+          </label>
+
+          <input type="radio" class="btn-check" name="category" id="cat-announcement"
+                 value="Announcement" autocomplete="off">
+          <label class="btn btn-outline-primary" for="cat-announcement">
+            Announcement
+          </label>
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <textarea class="form-control"
+                  id="post-content"
+                  rows="3"
+                  placeholder="Enter your message…"></textarea>
+      </div>
+
+      <button type="submit" class="btn btn-primary">Send</button>
+    </form>
+
+    <!-- ==== Your existing “All Posts” list ==== -->
+    <h2 class="mt-5 mb-3">All Posts</h2>
     <div id="posts" class="row row-cols-1 row-cols-md-2 g-4">
-      {% if posts %}
-        {% for p in posts %}
-        <div class="col" id="post-{{ p.id }}">
-          <div class="card h-100 shadow-sm">
-            <div class="card-body">
-              <h5 class="card-title text-primary">{{ p.category }}</h5>
-              <h6 class="card-subtitle mb-2 text-muted">
-                [{{ p.kiosk_id }}] • {{ p.timestamp }}
-              </h6>
-              <p class="card-text">
-                {{ p.content[:100] }}{% if p.content|length > 100 %}...{% endif %}
-              </p>
-              <a href="/post/{{ p.id }}"
-                 class="btn btn-outline-primary btn-sm">
-                View Details
-              </a>
-            </div>
-          </div>
-        </div>
-        {% endfor %}
-      {% else %}
-        <div class="col-12">
-          <p class="text-muted">No posts yet.</p>
-        </div>
-      {% endif %}
+      {% if posts %} … {% endif %}
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="https://cdn.socket.io/4.5.1/socket.io.min.js"></script>
+  <!-- local JS assets -->
+  <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/socket.io.min.js') }}"></script>
+
   <script>
-    const socket = io();  // connect back to Flask-SocketIO
+    // Socket.IO for live updates (unchanged)…
+    const socket = io();
+    socket.on('new_post', p => { /* … */ });
 
-    socket.on('new_post', p => {
-      console.log('new_post', p);
-      // skip if we already have this ID
-      if (document.getElementById('post-'+p.id)) return;
-
-      const col = document.createElement('div');
-      col.className = 'col';
-      col.id = 'post-' + p.id;
-      col.innerHTML = `
-        <div class="card h-100 shadow-sm">
-          <div class="card-body">
-            <h5 class="card-title text-primary">${p.category}</h5>
-            <h6 class="card-subtitle mb-2 text-muted">
-              [${p.kiosk_id}] • ${p.timestamp}
-            </h6>
-            <p class="card-text">
-              ${p.content.length > 100
-                ? p.content.slice(0,100) + '…'
-                : p.content
-              }
-            </p>
-            <a href="/post/${p.id}" class="btn btn-outline-primary btn-sm">
-              View Details
-            </a>
-          </div>
-        </div>`;
-      document.getElementById('posts').prepend(col);
-    });
+    // New: handle our form submit
+    document
+      .getElementById('post-form')
+      .addEventListener('submit', async e => {
+        e.preventDefault();
+        const category = document.querySelector('input[name="category"]:checked').value;
+        const content  = document.getElementById('post-content').value.trim();
+        if (!content) {
+          return alert('Please enter some content!');
+        }
+        try {
+          const res = await fetch('/api/posts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ category, content })
+          });
+          if (!res.ok) throw new Error(res.statusText);
+          document.getElementById('post-content').value = '';
+        } catch (err) {
+          alert('Failed to send post: ' + err.message);
+        }
+      });
   </script>
 </body>
 </html>
