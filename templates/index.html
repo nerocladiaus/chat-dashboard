@@ -1,3 +1,4 @@
+<!-- templates/index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,11 +7,20 @@
   <title>PeerConnect – Posts</title>
   <link rel="stylesheet"
         href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
+  <style>
+    /* Ensure the badge floats above everything and is easy to read */
+    #temp-display {
+      z-index: 1100;           /* above Bootstrap navbar (1000) */
+      font-size: 1.25rem;      /* larger text */
+      padding: 0.75rem 1rem;   /* more padding */
+    }
+  </style>
 </head>
 <body class="bg-light">
   <!-- Temperature badge -->
   <div id="temp-display"
-       class="position-fixed top-0 end-0 m-3 p-2 bg-info text-white rounded">
+       class="position-fixed top-0 end-0
+              bg-info text-white rounded shadow fs-5 fw-bold">
     --°C
   </div>
 
@@ -74,67 +84,79 @@
   <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
   <script src="{{ url_for('static', filename='js/socket.io.min.js') }}"></script>
   <script>
-    const socket = io();
-
-    // filter logic
     document.addEventListener('DOMContentLoaded', () => {
-      const btns   = document.querySelectorAll('#category-filters .btn');
-      const posts  = document.querySelectorAll('#posts .col');
+      const BASE = window.location.origin;
+      const badge = document.getElementById('temp-display');
+      if (!badge) return console.error('Temp badge missing!');
 
-      btns.forEach(btn => btn.addEventListener('click', () => {
-        btns.forEach(b=>b.classList.remove('active'));
-        btn.classList.add('active');
-        const cat = btn.dataset.category;
-        posts.forEach(c => {
-          c.style.display = (cat==='All'||c.dataset.category===cat)?'' : 'none';
-        });
-      }));
+      async function fetchTemp() {
+        try {
+          const res = await fetch(`${BASE}/api/temperature`);
+          if (!res.ok) {
+            badge.textContent = '--°C';
+            return;
+          }
+          const { temperature } = await res.json();
+          badge.textContent = temperature != null
+            ? temperature.toFixed(1) + '°C'
+            : '--°C';
+        } catch (e) {
+          console.error('fetchTemp error', e);
+          badge.textContent = '--°C';
+        }
+      }
+
+      // initial + every 10s
+      fetchTemp();
+      setInterval(fetchTemp, 10000);
+
+      // socket.io new_post handling…
+      const socket = io();
+      socket.on('new_post', p => {
+        const active = document.querySelector('#category-filters .btn.active')
+                               .dataset.category;
+        if (active !== 'All' && p.category !== active) return;
+        if (document.getElementById('post-' + p.id)) return;
+
+        const col = document.createElement('div');
+        col.className = 'col'; col.id = 'post-' + p.id;
+        col.dataset.category = p.category;
+        col.innerHTML = `
+          <div class="card h-100 shadow-sm">
+            <div class="card-body">
+              <h5 class="card-title text-primary">${p.category}</h5>
+              <h6 class="card-subtitle mb-2 text-muted">
+                [${p.kiosk_id}] • ${p.timestamp}
+              </h6>
+              <p class="card-text">
+                ${p.content.length > 100
+                  ? p.content.slice(0,100) + '…'
+                  : p.content}
+              </p>
+              <a href="/post/${p.id}"
+                 class="btn btn-outline-primary btn-sm">
+                View Details
+              </a>
+            </div>
+          </div>`;
+        document.getElementById('posts').prepend(col);
+      });
+
+      // category filter logic…
+      const btns  = document.querySelectorAll('#category-filters .btn');
+      const posts = document.querySelectorAll('#posts .col');
+      btns.forEach(b =>
+        b.addEventListener('click', () => {
+          btns.forEach(x => x.classList.remove('active'));
+          b.classList.add('active');
+          const cat = b.dataset.category;
+          posts.forEach(c => {
+            c.style.display =
+              (cat === 'All' || c.dataset.category === cat) ? '' : 'none';
+          });
+        })
+      );
     });
-
-    // real‑time new_post
-    socket.on('new_post', p => {
-      const active = document.querySelector('#category-filters .btn.active')
-                             .dataset.category;
-      if (active!=='All' && p.category!==active) return;
-      if (document.getElementById('post-'+p.id)) return;
-
-      const col = document.createElement('div');
-      col.className = 'col'; col.id = 'post-'+p.id;
-      col.dataset.category = p.category;
-      col.innerHTML = `
-        <div class="card h-100 shadow-sm">
-          <div class="card-body">
-            <h5 class="card-title text-primary">${p.category}</h5>
-            <h6 class="card-subtitle mb-2 text-muted">
-              [${p.kiosk_id}] • ${p.timestamp}
-            </h6>
-            <p class="card-text">
-              ${p.content.length>100
-                ? p.content.slice(0,100)+'…'
-                : p.content}
-            </p>
-            <a href="/post/${p.id}"
-               class="btn btn-outline-primary btn-sm">
-              View Details
-            </a>
-          </div>
-        </div>`;
-      document.getElementById('posts').prepend(col);
-    });
-
-    // temperature polling
-    async function fetchTemp(){
-    try {
-      const res = await fetch('/api/temperature');
-      const js  = await res.json();
-      document.getElementById('temp-display').textContent =
-        js.temperature !== null ? js.temperature + '°C' : '–– °C';
-    } catch(e) {
-      console.error('Temp fetch error', e);
-    }
-  }
-  fetchTemp();
-  setInterval(fetchTemp, 10000);
   </script>
 </body>
 </html>
