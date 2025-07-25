@@ -4,11 +4,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>PeerConnect – Posts</title>
-  <link
-    rel="stylesheet"
-    href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
+  <link rel="stylesheet"
+        href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
 </head>
 <body class="bg-light">
+  <!-- Temperature badge -->
+  <div id="temp-display"
+       class="position-fixed top-0 end-0 m-3 p-2 bg-info text-white rounded">
+    --°C
+  </div>
+
   <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
     <div class="container-fluid">
       <a class="navbar-brand" href="/">PeerConnect</a>
@@ -18,16 +23,12 @@
   <div class="container my-4">
     <h2 class="mb-3">All Posts</h2>
 
-    <!-- dynamic category filters -->
+    <!-- category filters -->
     <div id="category-filters" class="mb-4">
       <div class="btn-group" role="group">
-        {# always include an "All" button first #}
         <button type="button"
                 class="btn btn-outline-primary active"
-                data-category="All">
-          All
-        </button>
-        {# then one button per category from the DB #}
+                data-category="All">All</button>
         {% for cat in categories %}
           <button type="button"
                   class="btn btn-outline-primary"
@@ -47,9 +48,7 @@
                data-category="{{ p.category|e }}">
             <div class="card h-100 shadow-sm">
               <div class="card-body">
-                <h5 class="card-title text-primary">
-                  {{ p.category }}
-                </h5>
+                <h5 class="card-title text-primary">{{ p.category }}</h5>
                 <h6 class="card-subtitle mb-2 text-muted">
                   [{{ p.kiosk_id }}] • {{ p.timestamp }}
                 </h6>
@@ -77,88 +76,67 @@
   <script>
     const socket = io();
 
+    // filter logic
     document.addEventListener('DOMContentLoaded', () => {
-      const btnGroup      = document.querySelector('#category-filters .btn-group');
-      const postsContainer = document.getElementById('posts');
+      const btns   = document.querySelectorAll('#category-filters .btn');
+      const posts  = document.querySelectorAll('#posts .col');
 
-      function applyFilter(category) {
-        document.querySelectorAll('#posts .col')
-          .forEach(col => {
-            col.style.display =
-              (category === 'All' || col.dataset.category === category)
-                ? '' : 'none';
-          });
-      }
-
-      function makeButton(cat, active=false) {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'btn btn-outline-primary' + (active ? ' active' : '');
-        btn.dataset.category = cat;
-        btn.innerText = cat;
-        btn.addEventListener('click', () => {
-          // clear old active
-          btnGroup.querySelectorAll('button')
-            .forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
-          applyFilter(cat);
+      btns.forEach(btn => btn.addEventListener('click', () => {
+        btns.forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        const cat = btn.dataset.category;
+        posts.forEach(c => {
+          c.style.display = (cat==='All'||c.dataset.category===cat)?'' : 'none';
         });
-        return btn;
-      }
-
-      // wire up existing buttons
-      btnGroup.querySelectorAll('button').forEach(btn => {
-        btn.addEventListener('click', () => {
-          btnGroup.querySelectorAll('button')
-            .forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
-          applyFilter(btn.dataset.category);
-        });
-      });
-
-      // listen for new posts
-      socket.on('new_post', p => {
-        // 1) if we’ve never seen this category, add a filter button
-        if (!btnGroup.querySelector(`[data-category="${p.category}"]`)) {
-          const newBtn = makeButton(p.category);
-          btnGroup.appendChild(newBtn);
-        }
-
-        // 2) only render if it matches current filter
-        const activeCat = btnGroup.querySelector('button.active')
-                                .dataset.category;
-        if (activeCat !== 'All' && p.category !== activeCat) return;
-
-        // 3) avoid duplicates
-        if (document.getElementById('post-'+p.id)) return;
-
-        // 4) build & prepend the new card
-        const col = document.createElement('div');
-        col.className = 'col';
-        col.id        = 'post-' + p.id;
-        col.dataset.category = p.category;
-        col.innerHTML = `
-          <div class="card h-100 shadow-sm">
-            <div class="card-body">
-              <h5 class="card-title text-primary">${p.category}</h5>
-              <h6 class="card-subtitle mb-2 text-muted">
-                [${p.kiosk_id}] • ${p.timestamp}
-              </h6>
-              <p class="card-text">
-                ${p.content.length > 100
-                  ? p.content.slice(0,100) + '…'
-                  : p.content
-                }
-              </p>
-              <a href="/post/${p.id}"
-                 class="btn btn-outline-primary btn-sm">
-                View Details
-              </a>
-            </div>
-          </div>`;
-        postsContainer.prepend(col);
-      });
+      }));
     });
+
+    // real‑time new_post
+    socket.on('new_post', p => {
+      const active = document.querySelector('#category-filters .btn.active')
+                             .dataset.category;
+      if (active!=='All' && p.category!==active) return;
+      if (document.getElementById('post-'+p.id)) return;
+
+      const col = document.createElement('div');
+      col.className = 'col'; col.id = 'post-'+p.id;
+      col.dataset.category = p.category;
+      col.innerHTML = `
+        <div class="card h-100 shadow-sm">
+          <div class="card-body">
+            <h5 class="card-title text-primary">${p.category}</h5>
+            <h6 class="card-subtitle mb-2 text-muted">
+              [${p.kiosk_id}] • ${p.timestamp}
+            </h6>
+            <p class="card-text">
+              ${p.content.length>100
+                ? p.content.slice(0,100)+'…'
+                : p.content}
+            </p>
+            <a href="/post/${p.id}"
+               class="btn btn-outline-primary btn-sm">
+              View Details
+            </a>
+          </div>
+        </div>`;
+      document.getElementById('posts').prepend(col);
+    });
+
+    // temperature polling
+    async function fetchTemp(){
+      try {
+        const res = await fetch('/api/temperature');
+        const js  = await res.json();
+        document.getElementById('temp-display').textContent =
+          js.temperature!==null
+            ? js.temperature+'°C'
+            : '–– °C';
+      } catch(e){
+        console.error('Temp fetch error', e);
+      }
+    }
+    fetchTemp();
+    setInterval(fetchTemp, 10000);
   </script>
 </body>
 </html>
