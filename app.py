@@ -4,8 +4,7 @@ import sqlite3
 import atexit
 from datetime import datetime
 
-from flask import Flask, render_template, request, jsonify, abort
-from flask_cors import CORS
+from flask import Flask, render_template, request, jsonify, abort, make_response
 from flask_socketio import SocketIO
 
 import board
@@ -25,11 +24,18 @@ app = Flask(__name__,
             static_folder='static')
 app.config['SECRET_KEY'] = SECRET_KEY
 
-# Enable CORS for REST endpoints
-CORS(app)
-
-# SocketIO (we keep CORS allowed here too)
+# SocketIO (with its own CORS)
 socketio = SocketIO(app, cors_allowed_origins="*")
+
+# -------------------------------------------------
+# Simple CORS for all HTTP routes (so fetch() works)
+# -------------------------------------------------
+@app.after_request
+def add_cors_headers(response):
+    response.headers['Access-Control-Allow-Origin']  = '*'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type,Authorization'
+    response.headers['Access-Control-Allow-Methods'] = 'GET,POST,OPTIONS'
+    return response
 
 
 def init_db():
@@ -124,8 +130,12 @@ def add_post():
     return jsonify(post), 201
 
 
-@app.route('/api/temperature')
+@app.route('/api/temperature', methods=['GET', 'OPTIONS'])
 def get_temperature():
+    # Handle preflight
+    if request.method == 'OPTIONS':
+        return make_response(('', 204))
+
     for _ in range(3):
         try:
             t = DHT_DEVICE.temperature
@@ -133,10 +143,8 @@ def get_temperature():
         except RuntimeError:
             time.sleep(1)
     else:
-        # Failed 3 times
         return jsonify({'temperature': None}), 503
 
-    # Successful read
     return jsonify({'temperature': t}), 200
 
 
