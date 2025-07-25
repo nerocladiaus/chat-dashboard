@@ -124,19 +124,17 @@
 
     // temperature polling
     async function fetchTemp(){
-      try {
-        const res = await fetch('/api/temperature');
-        const js  = await res.json();
-        document.getElementById('temp-display').textContent =
-          js.temperature!==null
-            ? js.temperature+'°C'
-            : '–– °C';
-      } catch(e){
-        console.error('Temp fetch error', e);
-      }
+    try {
+      const res = await fetch('/api/temperature');
+      const js  = await res.json();
+      document.getElementById('temp-display').textContent =
+        js.temperature !== null ? js.temperature + '°C' : '–– °C';
+    } catch(e) {
+      console.error('Temp fetch error', e);
     }
-    fetchTemp();
-    setInterval(fetchTemp, 10000);
+  }
+  fetchTemp();
+  setInterval(fetchTemp, 10000);
   </script>
 </body>
 </html>
