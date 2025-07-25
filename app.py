@@ -114,4 +114,4 @@ def on_connect():
 if __name__ == '__main__':
     init_db()
     # only listen on your Pi’s own LAN IP
-    socketio.run(app, host='127.0.0.1', port=5000)
+    socketio.run(app, host='192.168.1.7', port=5000)
