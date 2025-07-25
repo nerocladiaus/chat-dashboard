@@ -1,97 +1,164 @@
-<!-- templates/index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- … your head as before, but loading bootstrap locally … -->
-  <link rel="stylesheet"
-        href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PeerConnect – Posts</title>
+  <link
+    rel="stylesheet"
+    href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
 </head>
 <body class="bg-light">
   <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-    <!-- … -->
+    <div class="container-fluid">
+      <a class="navbar-brand" href="/">PeerConnect</a>
+    </div>
   </nav>
 
   <div class="container my-4">
-    <!-- ==== New: Post form with toggle buttons ==== -->
-    <h2 class="mb-3">Submit a Post</h2>
-    <form id="post-form">
-      <div class="mb-3">
-        <!-- Bootstrap 5 “button‐check” toggles -->
-        <div class="btn-group" role="group" aria-label="Category">
-          <input type="radio" class="btn-check" name="category" id="cat-academic"
-                 value="Academic Help" autocomplete="off" checked>
-          <label class="btn btn-outline-primary" for="cat-academic">
-            Academic Help
-          </label>
+    <h2 class="mb-3">All Posts</h2>
 
-          <input type="radio" class="btn-check" name="category" id="cat-lostfound"
-                 value="Lost &amp; Found" autocomplete="off">
-          <label class="btn btn-outline-primary" for="cat-lostfound">
-            Lost &amp; Found
-          </label>
-
-          <input type="radio" class="btn-check" name="category" id="cat-interest"
-                 value="Interest Group" autocomplete="off">
-          <label class="btn btn-outline-primary" for="cat-interest">
-            Interest Group
-          </label>
-
-          <input type="radio" class="btn-check" name="category" id="cat-announcement"
-                 value="Announcement" autocomplete="off">
-          <label class="btn btn-outline-primary" for="cat-announcement">
-            Announcement
-          </label>
-        </div>
+    <!-- dynamic category filters -->
+    <div id="category-filters" class="mb-4">
+      <div class="btn-group" role="group">
+        {# always include an "All" button first #}
+        <button type="button"
+                class="btn btn-outline-primary active"
+                data-category="All">
+          All
+        </button>
+        {# then one button per category from the DB #}
+        {% for cat in categories %}
+          <button type="button"
+                  class="btn btn-outline-primary"
+                  data-category="{{ cat|e }}">
+            {{ cat }}
+          </button>
+        {% endfor %}
       </div>
+    </div>
 
-      <div class="mb-3">
-        <textarea class="form-control"
-                  id="post-content"
-                  rows="3"
-                  placeholder="Enter your message…"></textarea>
-      </div>
-
-      <button type="submit" class="btn btn-primary">Send</button>
-    </form>
-
-    <!-- ==== Your existing “All Posts” list ==== -->
-    <h2 class="mt-5 mb-3">All Posts</h2>
+    <!-- posts grid -->
     <div id="posts" class="row row-cols-1 row-cols-md-2 g-4">
-      {% if posts %} … {% endif %}
+      {% if posts %}
+        {% for p in posts %}
+          <div class="col"
+               id="post-{{ p.id }}"
+               data-category="{{ p.category|e }}">
+            <div class="card h-100 shadow-sm">
+              <div class="card-body">
+                <h5 class="card-title text-primary">
+                  {{ p.category }}
+                </h5>
+                <h6 class="card-subtitle mb-2 text-muted">
+                  [{{ p.kiosk_id }}] • {{ p.timestamp }}
+                </h6>
+                <p class="card-text">
+                  {{ p.content[:100] }}{% if p.content|length > 100 %}…{% endif %}
+                </p>
+                <a href="/post/{{ p.id }}"
+                   class="btn btn-outline-primary btn-sm">
+                  View Details
+                </a>
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <div class="col-12">
+          <p class="text-muted">No posts yet.</p>
+        </div>
+      {% endif %}
     </div>
   </div>
 
-  <!-- local JS assets -->
   <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
   <script src="{{ url_for('static', filename='js/socket.io.min.js') }}"></script>
-
   <script>
-    // Socket.IO for live updates (unchanged)…
     const socket = io();
-    socket.on('new_post', p => { /* … */ });
 
-    // New: handle our form submit
-    document
-      .getElementById('post-form')
-      .addEventListener('submit', async e => {
-        e.preventDefault();
-        const category = document.querySelector('input[name="category"]:checked').value;
-        const content  = document.getElementById('post-content').value.trim();
-        if (!content) {
-          return alert('Please enter some content!');
-        }
-        try {
-          const res = await fetch('/api/posts', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ category, content })
+    document.addEventListener('DOMContentLoaded', () => {
+      const btnGroup      = document.querySelector('#category-filters .btn-group');
+      const postsContainer = document.getElementById('posts');
+
+      function applyFilter(category) {
+        document.querySelectorAll('#posts .col')
+          .forEach(col => {
+            col.style.display =
+              (category === 'All' || col.dataset.category === category)
+                ? '' : 'none';
           });
-          if (!res.ok) throw new Error(res.statusText);
-          document.getElementById('post-content').value = '';
-        } catch (err) {
-          alert('Failed to send post: ' + err.message);
-        }
+      }
+
+      function makeButton(cat, active=false) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn-outline-primary' + (active ? ' active' : '');
+        btn.dataset.category = cat;
+        btn.innerText = cat;
+        btn.addEventListener('click', () => {
+          // clear old active
+          btnGroup.querySelectorAll('button')
+            .forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          applyFilter(cat);
+        });
+        return btn;
+      }
+
+      // wire up existing buttons
+      btnGroup.querySelectorAll('button').forEach(btn => {
+        btn.addEventListener('click', () => {
+          btnGroup.querySelectorAll('button')
+            .forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          applyFilter(btn.dataset.category);
+        });
       });
+
+      // listen for new posts
+      socket.on('new_post', p => {
+        // 1) if we’ve never seen this category, add a filter button
+        if (!btnGroup.querySelector(`[data-category="${p.category}"]`)) {
+          const newBtn = makeButton(p.category);
+          btnGroup.appendChild(newBtn);
+        }
+
+        // 2) only render if it matches current filter
+        const activeCat = btnGroup.querySelector('button.active')
+                                .dataset.category;
+        if (activeCat !== 'All' && p.category !== activeCat) return;
+
+        // 3) avoid duplicates
+        if (document.getElementById('post-'+p.id)) return;
+
+        // 4) build & prepend the new card
+        const col = document.createElement('div');
+        col.className = 'col';
+        col.id        = 'post-' + p.id;
+        col.dataset.category = p.category;
+        col.innerHTML = `
+          <div class="card h-100 shadow-sm">
+            <div class="card-body">
+              <h5 class="card-title text-primary">${p.category}</h5>
+              <h6 class="card-subtitle mb-2 text-muted">
+                [${p.kiosk_id}] • ${p.timestamp}
+              </h6>
+              <p class="card-text">
+                ${p.content.length > 100
+                  ? p.content.slice(0,100) + '…'
+                  : p.content
+                }
+              </p>
+              <a href="/post/${p.id}"
+                 class="btn btn-outline-primary btn-sm">
+                View Details
+              </a>
+            </div>
+          </div>`;
+        postsContainer.prepend(col);
+      });
+    });
   </script>
 </body>
 </html>
