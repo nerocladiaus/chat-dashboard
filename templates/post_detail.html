@@ -14,8 +14,10 @@
       <a class="navbar-brand" href="/">PeerConnect</a>
     </div>
   </nav>
+
   <div class="container my-4">
-    <div class="card shadow-sm">
+    <!-- Post Card -->
+    <div class="card shadow-sm mb-5">
       <div class="card-header bg-primary text-white">
         Post #{{ post.id }} – {{ post.category }}
       </div>
@@ -26,7 +28,52 @@
         <a href="/" class="btn btn-secondary">&larr; Back to Posts</a>
       </div>
     </div>
+
+    <!-- Comment Form -->
+    <div class="card mb-4">
+      <div class="card-header">
+        <strong>Leave a Comment</strong>
+      </div>
+      <div class="card-body">
+        <form method="post" action="">
+          <div class="mb-3">
+            <label for="userInput" class="form-label">Name</label>
+            <input type="text"
+                   class="form-control"
+                   id="userInput"
+                   name="user"
+                   placeholder="Your name (optional)">
+          </div>
+          <div class="mb-3">
+            <label for="commentInput" class="form-label">Comment</label>
+            <textarea class="form-control"
+                      id="commentInput"
+                      name="comment"
+                      rows="3"
+                      required></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary">Submit Comment</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Display Comments -->
+    {% if comments %}
+      <h5 class="mb-3">Comments</h5>
+      {% for c in comments %}
+        <div class="border rounded p-3 mb-3">
+          <p class="mb-1">
+            <strong>{{ c.user }}</strong>
+            <small class="text-muted">{{ c.timestamp }}</small>
+          </p>
+          <p>{{ c.comment }}</p>
+        </div>
+      {% endfor %}
+    {% else %}
+      <p class="text-muted">No comments yet. Be the first to comment!</p>
+    {% endif %}
   </div>
+
   <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
 </body>
 </html>
